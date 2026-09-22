@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubo
+  namespace: lgtm
+spec:
+  type: ClusterIP
+  selector:
+    app: kubo
+  ports:
+    - name: rpc
+      port: 5001
+      targetPort: rpc
+    - name: gateway
+      port: 8080
+      targetPort: gateway
+    - name: swarm-tcp
+      port: 4001
+      targetPort: swarm-tcp
+      protocol: TCP
+    - name: swarm-udp
+      port: 4001
+      targetPort: swarm-udp
+      protocol: UDP
