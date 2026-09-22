@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kubo
+  namespace: lgtm
+  labels:
+    app: kubo
+spec:
+  serviceName: kubo
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kubo
+  template:
+    metadata:
+      labels:
+        app: kubo
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 100
+        fsGroup: 100
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: kubo
+          image: ipfs/kubo:v0.43.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: rpc
+              containerPort: 5001
+            - name: gateway
+              containerPort: 8080
+            - name: swarm-tcp
+              containerPort: 4001
+              hostPort: 4001
+              protocol: TCP
+            - name: swarm-udp
+              containerPort: 4001
+              hostPort: 4001
+              protocol: UDP
+          env:
+            - name: IPFS_TELEMETRY
+              value: "off"
+            - name: OTEL_SERVICE_NAME
+              value: kubo
+            - name: OTEL_TRACES_EXPORTER
+              value: otlp
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: grpc
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector.lgtm.svc.cluster.local:4317
+            - name: OTEL_EXPORTER_OTLP_INSECURE
+              value: "true"
+            - name: OTEL_PROPAGATORS
+              value: tracecontext,baggage
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /data/ipfs
+          startupProbe:
+            tcpSocket:
+              port: gateway
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            tcpSocket:
+              port: gateway
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: gateway
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 5Gi

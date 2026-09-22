@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: lgtm
+  labels:
+    app: grafana
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      # Metrics
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        access: proxy
+        url: http://prometheus.lgtm.svc.cluster.local:9090
+        isDefault: true
+        jsonData:
+          httpMethod: POST
+          exemplarTraceIdDestinations:
+            - name: trace_id
+              datasourceUid: tempo
+
+      # Traces
+      - name: Tempo
+        type: tempo
+        uid: tempo
+        access: proxy
+        url: http://tempo.lgtm.svc.cluster.local:3200
+        jsonData:
+          tracesToLogsV2:
+            datasourceUid: loki
+            spanStartTimeShift: -1h
+            spanEndTimeShift: 1h
+            filterByTraceID: false
+            filterBySpanID: false
+            customQuery: true
+            query: '{service_name="lgtm-backend"} | trace_id="$${__span.traceId}"'
+
+      # Logs
+      - name: Loki
+        type: loki
+        uid: loki
+        access: proxy
+        url: http://loki.lgtm.svc.cluster.local:3100
+        jsonData:
+          derivedFields:
+            - name: trace_id
+              matcherType: label
+              matcherRegex: trace_id
+              url: '$${__value.raw}'
+              datasourceUid: tempo
+              urlDisplayLabel: View trace

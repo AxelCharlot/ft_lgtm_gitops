@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: lgtm
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
